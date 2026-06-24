@@ -10,6 +10,7 @@ Excel upload based persona report generator.
 - Generate up to 3 rule-based persona cards
 - View charts from uploaded Excel data
 - Choose chart types: bar, line, pie, doughnut, polar area, radar
+- Generate Gemini API based strategic insights from chart and persona summaries
 - Download the persona report as PDF
 
 ## Run
