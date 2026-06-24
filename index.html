@@ -125,6 +125,34 @@
         </div>
         <div id="reportContent" class="report-content"></div>
       </section>
+
+      <section class="panel hidden" id="insightSection" aria-labelledby="insightTitle">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Gemini Insight</p>
+            <h2 id="insightTitle">AI 인사이트 분석</h2>
+            <p class="section-note">차트 분석 결과와 페르소나를 바탕으로 보고서용 인사이트를 생성합니다.</p>
+          </div>
+          <button class="primary-button" type="button" id="generateInsightButton">인사이트 받기</button>
+        </div>
+        <div class="insight-controls">
+          <div class="field">
+            <label for="geminiApiKey">Gemini API 키</label>
+            <input id="geminiApiKey" type="password" placeholder="AIza..." autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="geminiModel">Gemini 모델</label>
+            <select id="geminiModel">
+              <option value="gemini-3.5-flash">gemini-3.5-flash</option>
+              <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+              <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+            </select>
+          </div>
+        </div>
+        <div class="insight-output" id="insightOutput">
+          페르소나 생성 후 Gemini API 키를 입력하고 인사이트를 받아보세요.
+        </div>
+      </section>
     </main>
 
     <script src="script.js"></script>
