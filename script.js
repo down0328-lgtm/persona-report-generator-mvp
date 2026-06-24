@@ -469,11 +469,21 @@ async function generateGeminiInsights() {
   } catch (error) {
     console.error(error);
     elements.insightOutput.classList.remove("loading");
-    elements.insightOutput.textContent = `인사이트 생성 중 오류가 발생했습니다.\n${error.message}`;
+    elements.insightOutput.textContent = buildInsightErrorMessage(error.message);
     showMessage("Gemini 인사이트 생성 중 오류가 발생했습니다.", "error");
   } finally {
     elements.generateInsightButton.disabled = false;
   }
+}
+
+function buildInsightErrorMessage(message) {
+  const rawMessage = message || "알 수 없는 오류가 발생했습니다.";
+  const isHighDemand = /high demand|try again later|overloaded|unavailable|503/i.test(rawMessage);
+  const suggestion = isHighDemand
+    ? "\n\n선택한 모델이 일시적으로 혼잡합니다. Gemini 모델을 gemini-2.5-flash 또는 gemini-2.0-flash로 바꾼 뒤 다시 눌러보세요."
+    : "\n\nAPI 키, 모델 권한, 네트워크 상태를 확인한 뒤 다시 시도해주세요.";
+
+  return `인사이트 생성 중 오류가 발생했습니다.\n${rawMessage}${suggestion}`;
 }
 
 function resetApp() {
