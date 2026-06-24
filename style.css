@@ -31,6 +31,11 @@ select {
   font: inherit;
 }
 
+input,
+select {
+  color: var(--ink);
+}
+
 button {
   border: 0;
   cursor: pointer;
@@ -236,7 +241,8 @@ tr:last-child td {
 }
 
 .selector-grid,
-.chart-controls {
+.chart-controls,
+.insight-controls {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
@@ -249,7 +255,8 @@ tr:last-child td {
   font-weight: 700;
 }
 
-.field select {
+.field select,
+.field input {
   width: 100%;
   min-height: 42px;
   border: 1px solid var(--line);
@@ -257,6 +264,36 @@ tr:last-child td {
   background: #fff;
   color: var(--ink);
   padding: 0 12px;
+}
+
+.insight-controls {
+  grid-template-columns: minmax(0, 2fr) minmax(180px, 1fr);
+}
+
+.insight-output {
+  min-height: 180px;
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdfc;
+  color: #21322e;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.insight-output.loading {
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+.insight-output h3 {
+  margin: 18px 0 8px;
+  color: var(--accent-strong);
+}
+
+.insight-output h3:first-child {
+  margin-top: 0;
 }
 
 .chart-shell {
@@ -392,6 +429,7 @@ tr:last-child td {
   .status-grid,
   .selector-grid,
   .chart-controls,
+  .insight-controls,
   .report-meta,
   .persona-grid {
     grid-template-columns: 1fr;
