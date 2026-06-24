@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Persona Report Generator</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="app-header">
+        <div>
+          <p class="eyebrow">Excel Persona MVP</p>
+          <h1>Persona Report Generator</h1>
+          <p>엑셀 데이터를 업로드하고 페르소나, 차트, PDF 보고서를 생성하세요.</p>
+        </div>
+        <button class="ghost-button" type="button" id="resetButton">초기화</button>
+      </header>
+
+      <section class="panel upload-panel" aria-labelledby="uploadTitle">
+        <div>
+          <h2 id="uploadTitle">엑셀 업로드</h2>
+          <p class="section-note">.xlsx 또는 .xls 파일의 첫 번째 시트를 분석합니다.</p>
+        </div>
+        <label class="upload-box" for="excelFile">
+          <span class="upload-icon" aria-hidden="true">+</span>
+          <span>
+            <strong>파일 선택</strong>
+            <small>업로드 파일은 브라우저 안에서만 처리됩니다.</small>
+          </span>
+          <input id="excelFile" type="file" accept=".xlsx,.xls" />
+        </label>
+        <div class="status-grid" aria-live="polite">
+          <div>
+            <span>파일명</span>
+            <strong id="fileName">-</strong>
+          </div>
+          <div>
+            <span>전체 행 수</span>
+            <strong id="rowCount">-</strong>
+          </div>
+          <div>
+            <span>컬럼 수</span>
+            <strong id="columnCount">-</strong>
+          </div>
+        </div>
+        <p class="message" id="message">업로드 전 엑셀 파일을 업로드해주세요.</p>
+      </section>
+
+      <section class="panel hidden" id="previewSection" aria-labelledby="previewTitle">
+        <div class="section-heading">
+          <div>
+            <h2 id="previewTitle">데이터 미리보기</h2>
+            <p class="section-note" id="previewMeta">상위 10행 표시</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table id="previewTable"></table>
+        </div>
+      </section>
+
+      <section class="panel hidden" id="chartSection" aria-labelledby="chartTitle">
+        <div class="section-heading">
+          <div>
+            <h2 id="chartTitle">데이터 차트</h2>
+            <p class="section-note">엑셀 컬럼을 기준으로 원하는 모양의 차트를 확인하세요.</p>
+          </div>
+          <button class="primary-button" type="button" id="drawChartButton">차트 그리기</button>
+        </div>
+        <div class="chart-controls">
+          <div class="field">
+            <label for="chartCategoryColumn">분류 컬럼</label>
+            <select id="chartCategoryColumn"></select>
+          </div>
+          <div class="field">
+            <label for="chartValueColumn">값 컬럼</label>
+            <select id="chartValueColumn"></select>
+          </div>
+          <div class="field">
+            <label for="chartMetric">집계 방식</label>
+            <select id="chartMetric">
+              <option value="count">건수</option>
+              <option value="sum">합계</option>
+              <option value="avg">평균</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="chartType">차트 모양</label>
+            <select id="chartType">
+              <option value="bar">막대 차트</option>
+              <option value="line">선 차트</option>
+              <option value="pie">원형 차트</option>
+              <option value="doughnut">도넛 차트</option>
+              <option value="polarArea">극좌표 차트</option>
+              <option value="radar">레이더 차트</option>
+            </select>
+          </div>
+        </div>
+        <div class="chart-shell">
+          <canvas id="dataChart" aria-label="엑셀 데이터 차트"></canvas>
+        </div>
+      </section>
+
+      <section class="panel hidden" id="selectorSection" aria-labelledby="selectorTitle">
+        <div class="section-heading">
+          <div>
+            <h2 id="selectorTitle">컬럼 선택</h2>
+            <p class="section-note">선택하지 않은 항목은 분석에서 제외됩니다.</p>
+          </div>
+          <button class="primary-button" type="button" id="generateButton">페르소나 생성</button>
+        </div>
+        <div class="selector-grid" id="columnSelectors"></div>
+      </section>
+
+      <section class="report-panel hidden" id="reportSection" aria-labelledby="reportTitle">
+        <div class="report-actions">
+          <div>
+            <p class="eyebrow">Persona Report</p>
+            <h2 id="reportTitle">페르소나 보고서</h2>
+          </div>
+          <button class="download-button" type="button" id="downloadButton">PDF 다운로드</button>
+        </div>
+        <div id="reportContent" class="report-content"></div>
+      </section>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>
