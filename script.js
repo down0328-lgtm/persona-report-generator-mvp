@@ -4,6 +4,8 @@ let uploadedFileName = "";
 let selectedColumns = {};
 let personaResults = [];
 let currentChart = null;
+let latestChartRows = [];
+let latestChartMeta = {};
 
 const columnRoles = [
   { key: "age", label: "연령대" },
@@ -18,6 +20,39 @@ const columnRoles = [
 
 const groupPriority = ["nationality", "visa", "age", "gender", "product", "channel"];
 const chartColors = ["#0F766E", "#2563EB", "#D97706", "#7C3AED", "#DC2626", "#0891B2", "#65A30D", "#BE185D", "#475569", "#9333EA"];
+const GEMINI_SYSTEM_PROMPT = `
+너는 업로드된 엑셀 데이터를 기반으로 차트와 주요 수치를 해석하는 데이터 분석 전략가다.
+너의 역할은 단순 요약이 아니라, 데이터 안에서 의미 있는 패턴, 추세, 이상치, 고객군 특징, 비즈니스 기회, 리스크 요인을 찾아내는 것이다.
+
+분석 시 다음 관점을 반드시 적용해라.
+1. 추세 관점: 월별 증가·감소, 급증·급감, 평균 대비 특이 구간, 계절성 가능성을 확인한다.
+2. 구성비 관점: 상위 항목, 점유율, 특정 항목 쏠림, 기타 그룹 비중을 확인한다.
+3. 비교 관점: 국가별, 체류자격별, 연령대별, 상품별, 채널별, 고객군별 차이를 비교한다.
+4. 이상치 관점: 특정 월만 튀는 현상, 특정 그룹 집중, 거래건수와 거래금액 불일치, 고객 수 대비 금액 차이를 확인한다.
+5. 비즈니스 활용 관점: 타겟 마케팅, 상품 제안, 수수료 전략, 채널 전략, 고객 세분화, 운영 리스크 관점에서 활용 방안을 제시한다.
+
+답변은 반드시 아래 형식으로 작성해라.
+1. 데이터 요약
+전체 데이터 규모, 주요 컬럼, 분석 기준, 핵심 지표를 요약한다.
+2. 주요 차트 해석
+차트에서 가장 눈에 띄는 패턴, 증가·감소 흐름, 상위 항목, 특이 구간을 설명한다.
+3. 핵심 인사이트
+최소 3개 이상 작성한다. 각 인사이트는 "인사이트 제목:", "분석 내용:", "비즈니스 의미:", "활용 방안:" 구조로 작성한다.
+4. 이상치 및 주의할 점
+급증 구간, 급감 구간, 데이터 편중, 추가 확인이 필요한 항목을 정리한다.
+5. 추천 액션
+실무자가 바로 실행할 수 있는 액션을 제안한다.
+6. 보고서용 요약 문장
+PDF 보고서에 바로 넣을 수 있는 문장으로 3~5문장 작성한다.
+
+주의사항:
+데이터에 없는 내용은 단정하지 마라.
+원인 추정은 “가능성이 있다”, “추정된다”, “추가 확인이 필요하다”라고 표현해라.
+숫자는 가능한 한 구체적으로 언급해라.
+단순 설명이 아니라 의미를 해석해라.
+보고서 문체로 작성해라.
+실무자가 바로 활용할 수 있는 표현으로 작성해라.
+`.trim();
 
 const elements = {
   fileInput: document.getElementById("excelFile"),
@@ -41,6 +76,11 @@ const elements = {
   reportSection: document.getElementById("reportSection"),
   reportContent: document.getElementById("reportContent"),
   downloadButton: document.getElementById("downloadButton"),
+  insightSection: document.getElementById("insightSection"),
+  geminiApiKey: document.getElementById("geminiApiKey"),
+  geminiModel: document.getElementById("geminiModel"),
+  generateInsightButton: document.getElementById("generateInsightButton"),
+  insightOutput: document.getElementById("insightOutput"),
   resetButton: document.getElementById("resetButton"),
 };
 
@@ -52,6 +92,7 @@ elements.chartMetric.addEventListener("change", renderChart);
 elements.chartType.addEventListener("change", renderChart);
 elements.generateButton.addEventListener("click", generatePersonas);
 elements.downloadButton.addEventListener("click", downloadPDF);
+elements.generateInsightButton.addEventListener("click", generateGeminiInsights);
 elements.resetButton.addEventListener("click", resetApp);
 
 function handleFileUpload(event) {
@@ -112,6 +153,7 @@ function parseExcelFile(file) {
       elements.chartSection.classList.remove("hidden");
       elements.selectorSection.classList.remove("hidden");
       elements.reportSection.classList.add("hidden");
+      elements.insightSection.classList.add("hidden");
       showMessage("엑셀 파일을 정상적으로 읽었습니다.");
     } catch (error) {
       console.error(error);
@@ -156,6 +198,8 @@ function renderChart() {
   const metric = elements.chartMetric.value;
   const chartType = elements.chartType.value;
   const chartRows = buildChartRows(categoryColumn, valueColumn, metric);
+  latestChartRows = chartRows;
+  latestChartMeta = { categoryColumn, valueColumn, metric, chartType };
 
   if (!chartRows.length) {
     showMessage("차트로 표시할 데이터가 없습니다.", "warn");
@@ -266,6 +310,7 @@ function generatePersonas() {
 
   renderPersonaReport(groupKey);
   elements.reportSection.classList.remove("hidden");
+  elements.insightSection.classList.remove("hidden");
   showMessage("페르소나 보고서가 생성되었습니다.");
 }
 
@@ -376,12 +421,69 @@ function downloadPDF() {
     .catch(() => showMessage("PDF 생성 중 오류가 발생했습니다.", "error"));
 }
 
+async function generateGeminiInsights() {
+  const apiKey = elements.geminiApiKey.value.trim();
+  const model = elements.geminiModel.value;
+
+  if (!apiKey) {
+    showMessage("Gemini API 키를 입력해주세요.", "warn");
+    elements.geminiApiKey.focus();
+    return;
+  }
+
+  if (!personaResults.length) {
+    showMessage("먼저 페르소나를 생성해주세요.", "warn");
+    return;
+  }
+
+  elements.generateInsightButton.disabled = true;
+  elements.insightOutput.classList.add("loading");
+  elements.insightOutput.textContent = "Gemini가 차트와 페르소나를 분석하는 중입니다...";
+
+  try {
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
+      body: JSON.stringify({
+        model,
+        system_instruction: GEMINI_SYSTEM_PROMPT,
+        input: buildGeminiInput(),
+        generation_config: {
+          temperature: 0.4,
+        },
+      }),
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result?.error?.message || "Gemini API 호출에 실패했습니다.");
+    }
+
+    const text = extractGeminiText(result);
+    elements.insightOutput.classList.remove("loading");
+    elements.insightOutput.innerHTML = formatInsightText(text || "인사이트 응답이 비어 있습니다.");
+    showMessage("Gemini 인사이트 분석이 완료되었습니다.");
+  } catch (error) {
+    console.error(error);
+    elements.insightOutput.classList.remove("loading");
+    elements.insightOutput.textContent = `인사이트 생성 중 오류가 발생했습니다.\n${error.message}`;
+    showMessage("Gemini 인사이트 생성 중 오류가 발생했습니다.", "error");
+  } finally {
+    elements.generateInsightButton.disabled = false;
+  }
+}
+
 function resetApp() {
   originalData = [];
   headers = [];
   uploadedFileName = "";
   selectedColumns = {};
   personaResults = [];
+  latestChartRows = [];
+  latestChartMeta = {};
 
   if (currentChart) {
     currentChart.destroy();
@@ -395,10 +497,12 @@ function resetApp() {
   elements.previewTable.innerHTML = "";
   elements.columnSelectors.innerHTML = "";
   elements.reportContent.innerHTML = "";
+  elements.insightOutput.textContent = "페르소나 생성 후 Gemini API 키를 입력하고 인사이트를 받아보세요.";
   elements.previewSection.classList.add("hidden");
   elements.chartSection.classList.add("hidden");
   elements.selectorSection.classList.add("hidden");
   elements.reportSection.classList.add("hidden");
+  elements.insightSection.classList.add("hidden");
   showMessage("업로드 전 엑셀 파일을 업로드해주세요.");
 }
 
@@ -429,6 +533,78 @@ function chartDatasetLabel(categoryColumn, valueColumn, metric) {
   const metricLabel = metric === "avg" ? "평균" : metric === "sum" ? "합계" : "건수";
   const target = valueColumn && metric !== "count" ? `${valueColumn} ${metricLabel}` : metricLabel;
   return `${categoryColumn}별 ${target}`;
+}
+
+function buildGeminiInput() {
+  const numericSummary = headers
+    .map((header) => {
+      const values = originalData.map((row) => toNumber(row[header])).filter(Number.isFinite);
+      if (!values.length) return null;
+      return {
+        column: header,
+        count: values.length,
+        sum: Math.round(sum(values)),
+        average: Math.round(average(values) * 100) / 100,
+        min: Math.min(...values),
+        max: Math.max(...values),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 10);
+
+  const sampleRows = originalData.slice(0, 8).map((row) => {
+    const compact = {};
+    headers.slice(0, 12).forEach((header) => {
+      compact[header] = row[header];
+    });
+    return compact;
+  });
+
+  const payload = {
+    fileName: uploadedFileName,
+    rowCount: originalData.length,
+    columnCount: headers.length,
+    headers,
+    selectedColumns,
+    chart: {
+      ...latestChartMeta,
+      topRows: latestChartRows,
+    },
+    personas: personaResults.map((persona) => ({
+      name: persona.name,
+      customerCount: persona.customerCount,
+      share: formatPercent(persona.share),
+      amountTotal: persona.amountTotal,
+      amountAverage: persona.amountAverage,
+      countTotal: persona.countTotal,
+      countAverage: persona.countAverage,
+      topProduct: persona.topProduct,
+      topChannel: persona.topChannel,
+    })),
+    numericSummary,
+    sampleRows,
+  };
+
+  return `아래 JSON은 사용자가 업로드한 엑셀 데이터에서 계산한 차트 분석 결과와 페르소나 요약입니다. 첨부 페르소나 지침의 형식에 맞춰 한국어 보고서 문체로 인사이트를 작성하세요.\n\n${JSON.stringify(payload, null, 2)}`;
+}
+
+function extractGeminiText(result) {
+  if (typeof result.output_text === "string") return result.output_text;
+  const texts = [];
+  (result.steps || []).forEach((step) => {
+    (step.content || step.contents || []).forEach((content) => {
+      if (typeof content.text === "string") texts.push(content.text);
+    });
+  });
+  return texts.join("\n").trim();
+}
+
+function formatInsightText(text) {
+  const safe = escapeHtml(text);
+  return safe
+    .replace(/^(\d+\.\s*[^\n]+)/gm, "<h3>$1</h3>")
+    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\n/g, "<br>");
 }
 
 function buildTraits(persona) {
